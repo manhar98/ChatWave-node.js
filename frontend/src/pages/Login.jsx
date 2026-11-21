@@ -48,9 +48,15 @@ function Login() {
         setError(data.message || "Login failed.");
       }
     } catch (err) {
-      setError(
-        err.response?.data?.message || "Login failed. Try again."
-      );
+      console.error("Login error:", err);
+      const serverMessage = err.response?.data?.message;
+      if (serverMessage) {
+        setError(serverMessage);
+      } else if (err.code === "ECONNABORTED" || err.message?.includes("Network")) {
+        setError("સર્વર સાથે કનેક્ટ થઈ રહ્યું છે... કૃપા કરીને થોડી સેકન્ડ પછી ફરી પ્રયાસ કરો.");
+      } else {
+        setError(err.message || "Login failed. Try again.");
+      }
     } finally {
       setLoading(false);
     }

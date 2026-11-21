@@ -51,9 +51,15 @@ function Register() {
         navigate("/login");
       }
     } catch (err) {
-      setError(
-        err.response?.data?.message || "Registration failed. Try again."
-      );
+      console.error("Registration error:", err);
+      const serverMessage = err.response?.data?.message;
+      if (serverMessage) {
+        setError(serverMessage);
+      } else if (err.code === "ECONNABORTED" || err.message?.includes("Network")) {
+        setError("સર્વર સાથે કનેક્ટ થઈ રહ્યું છે... કૃપા કરીને 20-30 સેકન્ડ પછી ફરી 'Create Account' દબાવો.");
+      } else {
+        setError(err.message || "Registration failed. Try again.");
+      }
     } finally {
       setLoading(false);
     }

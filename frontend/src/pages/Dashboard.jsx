@@ -30,7 +30,7 @@ import API from "../utils/api";
 import { useSocket } from "../context/SocketContext";
 
 const API_BASE_URL =
-  import.meta.env.VITE_API_URL || "http://localhost:8000/api";
+  import.meta.env.VITE_API_URL || "https://chatwave-node-js.onrender.com/api";
 
 // Strip trailing /api if present to get server root URL
 const SERVER_URL = API_BASE_URL.replace(/\/api\/?$/, "").replace(/\/$/, "");

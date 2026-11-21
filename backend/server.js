@@ -28,13 +28,23 @@ const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:5174",
   "https://chat-wave-node-js.vercel.app",
-];
+  "https://chat-wave-node-js-15np.vercel.app",
+  process.env.FRONTEND_URL,
+].filter(Boolean);
+
+const isAllowedOrigin = (origin) => {
+  if (!origin) return true;
+  if (allowedOrigins.includes(origin)) return true;
+  if (/^https:\/\/chat-wave-node-js.*\.vercel\.app$/.test(origin)) return true;
+  if (/^http:\/\/localhost:\d+$/.test(origin)) return true;
+  return false;
+};
 
 // CORS Configuration
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) {
+      if (isAllowedOrigin(origin)) {
         callback(null, true);
       } else {
         callback(new Error("Not allowed by CORS"));

@@ -5,7 +5,7 @@ import { io } from "socket.io-client";
 const SocketContext = createContext(null);
 
 const SOCKET_URL =
-  import.meta.env.VITE_SOCKET_URL || "http://localhost:8000";
+  import.meta.env.VITE_SOCKET_URL || "https://chatwave-node-js.onrender.com";
 
 export const SocketProvider = ({ children }) => {
   const [socket, setSocket] = useState(null);

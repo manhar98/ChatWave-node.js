@@ -24,6 +24,12 @@ import {
   ChevronRight,
   Eye,
   Users,
+  Bell,
+  Shield,
+  HelpCircle,
+  KeyRound,
+  Info,
+  Download,
 } from "lucide-react";
 
 import API from "../utils/api";
@@ -140,6 +146,10 @@ function Dashboard() {
 
   const [viewingStatus, setViewingStatus] = useState(false);
   const [activeStatusIndex, setActiveStatusIndex] = useState(null);
+
+  // Settings modal
+  const [showSettings, setShowSettings] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   // Starred messages states
   const [starredMessages, setStarredMessages] = useState([]);
@@ -1614,6 +1624,27 @@ function Dashboard() {
     window.location.href = "/login";
   };
 
+  // Delete Account from Settings
+  const handleDeleteAccount = async () => {
+    const confirmed = window.confirm(
+      "શું તમે ખરેખર account delete કરવા માંગો છો?\nઆ action undo નહીં થઈ શકે."
+    );
+    if (!confirmed) return;
+    try {
+      setDeletingAccount(true);
+      await API.delete("/users/account");
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      window.dispatchEvent(new Event("auth-change"));
+      window.location.href = "/register";
+    } catch (err) {
+      console.log("Delete Account Error:", err);
+      alert(err.response?.data?.message || "Account delete થઈ શક્યો નથી.");
+    } finally {
+      setDeletingAccount(false);
+    }
+  };
+
   const otherUser = selectedChat ? getOtherUser(selectedChat) : null;
 
   // Group માટે members (જેમની સાથે 1-to-1 chat છે)
@@ -1659,18 +1690,28 @@ function Dashboard() {
           <span className="hidden md:block">My Profile</span>
         </button>
 
-        <button className="w-full flex items-center justify-center md:justify-start gap-3 p-3 mt-3 rounded-xl hover:bg-white/5 text-gray-400">
+        <button
+          onClick={() => setShowSettings(true)}
+          className="w-full flex items-center justify-center md:justify-start gap-3 p-3 mt-3 rounded-xl hover:bg-white/5 text-gray-400"
+        >
           <Settings size={21} />
           <span className="hidden md:block">Settings</span>
         </button>
 
+        {/* User avatar at bottom */}
         <div className="mt-auto">
           <button
-            onClick={handleLogout}
-            className="w-full flex items-center justify-center md:justify-start gap-3 p-3 rounded-xl text-red-400 hover:bg-red-500/10"
+            onClick={() => setShowSettings(true)}
+            className="w-full flex items-center justify-center md:justify-start gap-3 p-3 rounded-xl hover:bg-white/5"
           >
-            <LogOut size={21} />
-            <span className="hidden md:block">Logout</span>
+            <UserAvatar
+              profilePic={user?.profilePic}
+              fullName={user?.fullName}
+              size="w-8 h-8"
+            />
+            <span className="hidden md:block text-sm font-medium truncate text-gray-300">
+              {user?.fullName || "Account"}
+            </span>
           </button>
         </div>
       </aside>
@@ -1683,100 +1724,69 @@ function Dashboard() {
       >
         <h2 className="text-2xl font-bold mb-2">Messages</h2>
 
-        {/* WhatsApp Status Section */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold">Status</h3>
-
+        {/* WhatsApp Status Section — Horizontal circles */}
+        <div className="mb-5">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Status</h3>
             <button
               type="button"
-              onClick={() => {
-                setStatusError("");
-                setShowStatusUpload(true);
-              }}
-              className="text-purple-400 text-sm hover:text-purple-300"
+              onClick={() => { setStatusError(""); setShowStatusUpload(true); }}
+              className="text-xs text-purple-400 hover:text-purple-300 transition"
             >
-              + Add Status
+              + Add
             </button>
           </div>
 
-          {/* My Status */}
-          <button
-            type="button"
-            onClick={handleOpenMyStatus}
-            className="w-full flex items-center gap-3 p-3 rounded-xl bg-[#1b1928] border border-gray-800 hover:border-purple-500/50 mb-3 text-left"
-          >
-            <div className="relative">
-              <div className="rounded-full p-[3px] border-2 border-purple-500">
-                <UserAvatar
-                  profilePic={user.profilePic}
-                  fullName={user.fullName}
-                />
-              </div>
-
-              <span className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-purple-600 border-2 border-[#1b1928] flex items-center justify-center">
-                <Plus size={14} />
-              </span>
-            </div>
-
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold">My Status</p>
-              <p className="text-xs text-gray-400">
-                Add a photo or video update
-              </p>
-            </div>
-
-            <Camera size={20} className="text-purple-400" />
-          </button>
-
-          {/* Recent Status */}
-          {statuses
-            .filter((status) => {
-              const statusUserId = status.user?._id || status.user;
-
-              return String(statusUserId) !== String(currentUserId);
-            })
-            .map((status) => (
-              <button
-                key={status._id}
-                type="button"
-                onClick={() =>
-                  handleOpenStatus(
-                    statuses.findIndex((item) => item._id === status._id),
-                  )
-                }
-                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 text-left"
-              >
-                <div className="rounded-full p-[3px] border-2 border-purple-500">
+          <div className="flex gap-4 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+            {/* My Status circle */}
+            <button
+              type="button"
+              onClick={handleOpenMyStatus}
+              className="flex flex-col items-center gap-1.5 shrink-0"
+            >
+              <div className="relative">
+                <div className="rounded-full p-[2.5px] border-[2.5px] border-purple-500">
                   <UserAvatar
-                    profilePic={status.user?.profilePic}
-                    fullName={
-                      status.user?.fullName || status.user?.name || "User"
-                    }
+                    profilePic={user?.profilePic}
+                    fullName={user?.fullName}
+                    size="w-13 h-13"
                   />
                 </div>
+                <span className="absolute bottom-0 right-0 w-5 h-5 rounded-full bg-purple-600 border-2 border-[#0e0c18] flex items-center justify-center">
+                  <Plus size={11} />
+                </span>
+              </div>
+              <p className="text-[11px] text-gray-300 w-14 truncate text-center">My Status</p>
+            </button>
 
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold truncate">
-                    {status.user?.fullName || status.user?.name || "User"}
+            {/* Others' status circles */}
+            {statuses
+              .filter((status) => String(status.user?._id || status.user) !== String(currentUserId))
+              .map((status) => (
+                <button
+                  key={status._id}
+                  type="button"
+                  onClick={() =>
+                    handleOpenStatus(statuses.findIndex((item) => item._id === status._id))
+                  }
+                  className="flex flex-col items-center gap-1.5 shrink-0"
+                >
+                  <div className="rounded-full p-[2.5px] border-[2.5px] border-green-400">
+                    <UserAvatar
+                      profilePic={status.user?.profilePic}
+                      fullName={status.user?.fullName || status.user?.name || "User"}
+                      size="w-13 h-13"
+                    />
+                  </div>
+                  <p className="text-[11px] text-gray-300 w-14 truncate text-center">
+                    {(status.user?.fullName || "User").split(" ")[0]}
                   </p>
-
-                  <p className="text-xs text-gray-400">
-                    {new Date(status.createdAt).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </p>
-                </div>
-
-                {status.mediaType === "video" && (
-                  <Play size={16} className="text-purple-400" />
-                )}
-              </button>
-            ))}
+                </button>
+              ))}
+          </div>
 
           {statusError && (
-            <p className="text-red-400 text-xs mt-2">{statusError}</p>
+            <p className="text-red-400 text-xs mt-1">{statusError}</p>
           )}
         </div>
 
@@ -1959,9 +1969,19 @@ function Dashboard() {
                   </div>
 
                   <div className="min-w-0 flex-1">
-                    <h4 className="font-semibold truncate">
-                      {getChatTitle(chat)}
-                    </h4>
+                    <div className="flex items-center justify-between gap-1 mb-0.5">
+                      <h4 className="font-semibold truncate">
+                        {getChatTitle(chat)}
+                      </h4>
+                      {chat.latestMessage?.createdAt && (
+                        <span className="shrink-0 text-[11px] text-gray-500">
+                          {new Date(chat.latestMessage.createdAt).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </span>
+                      )}
+                    </div>
 
                     <div className="flex items-center justify-between gap-2 min-w-0">
                       <p className="text-xs text-gray-400 truncate">
@@ -1969,7 +1989,7 @@ function Dashboard() {
                       </p>
 
                       {chat.unreadCount > 0 && (
-                        <span className="shrink-0 min-w-5 h-5 px-1 rounded-full bg-purple-600 text-white text-xs font-bold flex items-center justify-center">
+                        <span className="shrink-0 min-w-5 h-5 px-1 rounded-full bg-green-500 text-white text-xs font-bold flex items-center justify-center">
                           {chat.unreadCount > 99 ? "99+" : chat.unreadCount}
                         </span>
                       )}
@@ -3274,6 +3294,205 @@ function Dashboard() {
           </form>
         </div>
       )}
+
+      {/* =================== SETTINGS MODAL =================== */}
+      {showSettings && (
+        <div
+          className="fixed inset-0 z-[12000] bg-black/75 flex items-end sm:items-center justify-center sm:p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowSettings(false);
+          }}
+        >
+          <div className="w-full sm:max-w-md bg-[#111020] border border-purple-500/20 rounded-t-3xl sm:rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
+
+            {/* Modal Header */}
+            <div className="sticky top-0 bg-[#111020] flex items-center justify-between px-5 pt-5 pb-4 border-b border-white/10">
+              <h2 className="text-xl font-bold">Settings</h2>
+              <button
+                type="button"
+                onClick={() => setShowSettings(false)}
+                className="p-2 rounded-xl hover:bg-white/10 text-gray-400 hover:text-white transition"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Profile strip */}
+            <button
+              type="button"
+              onClick={() => { setShowSettings(false); window.location.href = "/profile"; }}
+              className="w-full flex items-center gap-4 px-5 py-4 hover:bg-white/5 transition"
+            >
+              <div className="rounded-full p-[2px] border-2 border-purple-500 shrink-0">
+                <UserAvatar
+                  profilePic={user?.profilePic}
+                  fullName={user?.fullName}
+                  size="w-14 h-14"
+                />
+              </div>
+              <div className="flex-1 text-left min-w-0">
+                <p className="font-bold text-base truncate">{user?.fullName || "User"}</p>
+                <p className="text-xs text-gray-400 truncate">{user?.email || ""}</p>
+                <p className="text-xs text-purple-400 mt-0.5">Edit profile →</p>
+              </div>
+            </button>
+
+            <div className="mx-4 border-t border-white/10" />
+
+            {/* Settings sections */}
+            <div className="p-4 space-y-1">
+
+              {/* Account */}
+              <p className="text-xs text-purple-400 font-semibold uppercase tracking-widest px-2 pt-2 pb-1">Account</p>
+
+              <button
+                type="button"
+                onClick={() => { setShowSettings(false); window.location.href = "/profile"; }}
+                className="w-full flex items-center gap-4 px-3 py-3 rounded-xl hover:bg-white/5 transition text-left"
+              >
+                <div className="w-9 h-9 rounded-full bg-blue-500/20 flex items-center justify-center shrink-0">
+                  <User size={18} className="text-blue-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm">My Profile</p>
+                  <p className="text-xs text-gray-400">Name, bio, profile photo</p>
+                </div>
+                <ChevronRight size={17} className="text-gray-500" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { setShowSettings(false); }}
+                className="w-full flex items-center gap-4 px-3 py-3 rounded-xl hover:bg-white/5 transition text-left"
+              >
+                <div className="w-9 h-9 rounded-full bg-purple-500/20 flex items-center justify-center shrink-0">
+                  <KeyRound size={18} className="text-purple-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm">Change Password</p>
+                  <p className="text-xs text-gray-400">Login page → Forgot Password</p>
+                </div>
+                <ChevronRight size={17} className="text-gray-500" />
+              </button>
+
+              {/* Notifications */}
+              <p className="text-xs text-purple-400 font-semibold uppercase tracking-widest px-2 pt-4 pb-1">Notifications</p>
+
+              <div className="flex items-center gap-4 px-3 py-3 rounded-xl hover:bg-white/5 transition">
+                <div className="w-9 h-9 rounded-full bg-yellow-500/20 flex items-center justify-center shrink-0">
+                  <Bell size={18} className="text-yellow-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm">Message Notifications</p>
+                  <p className="text-xs text-gray-400">New messages, group messages</p>
+                </div>
+                <div className="w-11 h-6 bg-purple-600 rounded-full flex items-center px-1">
+                  <div className="w-4 h-4 bg-white rounded-full ml-auto" />
+                </div>
+              </div>
+
+              {/* Privacy */}
+              <p className="text-xs text-purple-400 font-semibold uppercase tracking-widest px-2 pt-4 pb-1">Privacy</p>
+
+              <div className="flex items-center gap-4 px-3 py-3 rounded-xl hover:bg-white/5 transition">
+                <div className="w-9 h-9 rounded-full bg-green-500/20 flex items-center justify-center shrink-0">
+                  <Shield size={18} className="text-green-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm">Last Seen & Online</p>
+                  <p className="text-xs text-gray-400">Who can see your online status</p>
+                </div>
+                <ChevronRight size={17} className="text-gray-500" />
+              </div>
+
+              <div className="flex items-center gap-4 px-3 py-3 rounded-xl hover:bg-white/5 transition">
+                <div className="w-9 h-9 rounded-full bg-teal-500/20 flex items-center justify-center shrink-0">
+                  <Eye size={18} className="text-teal-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm">Read Receipts</p>
+                  <p className="text-xs text-gray-400">Show when messages are read</p>
+                </div>
+                <div className="w-11 h-6 bg-purple-600 rounded-full flex items-center px-1">
+                  <div className="w-4 h-4 bg-white rounded-full ml-auto" />
+                </div>
+              </div>
+
+              {/* Chats */}
+              <p className="text-xs text-purple-400 font-semibold uppercase tracking-widest px-2 pt-4 pb-1">Chats</p>
+
+              <div className="flex items-center gap-4 px-3 py-3 rounded-xl hover:bg-white/5 transition">
+                <div className="w-9 h-9 rounded-full bg-orange-500/20 flex items-center justify-center shrink-0">
+                  <Download size={18} className="text-orange-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm">Chat Backup</p>
+                  <p className="text-xs text-gray-400">Export and backup your chats</p>
+                </div>
+                <ChevronRight size={17} className="text-gray-500" />
+              </div>
+
+              {/* Help */}
+              <p className="text-xs text-purple-400 font-semibold uppercase tracking-widest px-2 pt-4 pb-1">Help</p>
+
+              <div className="flex items-center gap-4 px-3 py-3 rounded-xl hover:bg-white/5 transition">
+                <div className="w-9 h-9 rounded-full bg-pink-500/20 flex items-center justify-center shrink-0">
+                  <HelpCircle size={18} className="text-pink-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm">Help Center</p>
+                  <p className="text-xs text-gray-400">FAQs and support</p>
+                </div>
+                <ChevronRight size={17} className="text-gray-500" />
+              </div>
+
+              <div className="flex items-center gap-4 px-3 py-3 rounded-xl hover:bg-white/5 transition">
+                <div className="w-9 h-9 rounded-full bg-indigo-500/20 flex items-center justify-center shrink-0">
+                  <Info size={18} className="text-indigo-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm">About ChatWave</p>
+                  <p className="text-xs text-gray-400">Version 1.0.0</p>
+                </div>
+                <ChevronRight size={17} className="text-gray-500" />
+              </div>
+
+            </div>
+
+            {/* Logout + Delete Account at bottom */}
+            <div className="px-4 pb-6 pt-2 space-y-2 border-t border-white/10 mx-4 mt-2">
+
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="w-full flex items-center gap-4 px-3 py-3 rounded-xl text-red-400 hover:bg-red-500/10 transition text-left"
+              >
+                <div className="w-9 h-9 rounded-full bg-red-500/20 flex items-center justify-center shrink-0">
+                  <LogOut size={18} className="text-red-400" />
+                </div>
+                <span className="font-semibold text-sm">Logout</span>
+              </button>
+
+              <button
+                type="button"
+                disabled={deletingAccount}
+                onClick={handleDeleteAccount}
+                className="w-full flex items-center gap-4 px-3 py-3 rounded-xl text-red-500 hover:bg-red-600/10 disabled:opacity-50 transition text-left"
+              >
+                <div className="w-9 h-9 rounded-full bg-red-600/20 flex items-center justify-center shrink-0">
+                  <Trash2 size={18} className="text-red-500" />
+                </div>
+                <span className="font-semibold text-sm">
+                  {deletingAccount ? "Deleting..." : "Delete Account"}
+                </span>
+              </button>
+
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ============== END SETTINGS MODAL ============== */}
+
     </div>
   );
 }

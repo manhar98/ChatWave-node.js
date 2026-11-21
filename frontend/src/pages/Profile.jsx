@@ -306,7 +306,7 @@ function Profile() {
             className="w-full bg-gradient-to-r from-purple-600 to-violet-700 hover:from-purple-700 hover:to-violet-800 disabled:opacity-50 rounded-xl py-4 font-semibold flex items-center justify-center gap-2 transition"
           >
             <Save size={19} />
-            {saving ? "Saving..." : "Save Changes"}
+            {saving ? "Saving..." : "Save Profile"}
           </button>
 
           {/* Delete Account Button */}
@@ -317,7 +317,7 @@ function Profile() {
             className="w-full mt-4 bg-red-600/10 border border-red-500/40 hover:bg-red-600/20 text-red-400 disabled:opacity-50 rounded-xl py-4 font-semibold flex items-center justify-center gap-2 transition"
           >
             <Trash2 size={19} />
-            {deleting ? "Deleting..." : "Delete My Account"}
+            {deleting ? "Deleting..." : "Delete Account"}
           </button>
 
         </form>

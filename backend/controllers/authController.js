@@ -64,10 +64,6 @@ export const registerUser = async (req, res) => {
   }
 };
 
-
-
-
-
 // Login User
 export const loginUser = async (req, res) => {
   try {
@@ -129,6 +125,60 @@ export const loginUser = async (req, res) => {
   } catch (error) {
     console.log("Login Error:", error.message);
 
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
+  }
+};
+
+// Reset / Forgot Password
+export const resetPassword = async (req, res) => {
+  try {
+    const { email, newPassword, confirmPassword } = req.body;
+
+    if (!email || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Email and new password are required",
+      });
+    }
+
+    if (confirmPassword && newPassword !== confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Passwords do not match",
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 6 characters",
+      });
+    }
+
+    const user = await User.findOne({
+      email: email.toLowerCase().trim(),
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "No account found with this email address",
+      });
+    }
+
+    // Assign new password, userSchema pre('save') hashes it with bcrypt
+    user.password = newPassword;
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Password reset successfully! You can now login with your new password.",
+    });
+  } catch (error) {
+    console.log("Reset Password Error:", error.message);
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",

@@ -1,7 +1,7 @@
 
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Eye, EyeOff, Mail, Lock } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, X, KeyRound, CheckCircle } from "lucide-react";
 import API from "../utils/api";
 
 function Login() {
@@ -15,6 +15,67 @@ function Login() {
     email: "",
     password: "",
   });
+
+  // Forgot password states
+  const [showForgotModal, setShowForgotModal] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotNewPassword, setForgotNewPassword] = useState("");
+  const [forgotConfirmPassword, setForgotConfirmPassword] = useState("");
+  const [showForgotPass, setShowForgotPass] = useState(false);
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotError, setForgotError] = useState("");
+  const [forgotSuccess, setForgotSuccess] = useState("");
+
+  const handleResetPassword = async (e) => {
+    e.preventDefault();
+    setForgotError("");
+    setForgotSuccess("");
+
+    if (!forgotEmail || !forgotNewPassword) {
+      setForgotError("Email અને New Password બંને જરૂરી છે.");
+      return;
+    }
+
+    if (forgotNewPassword.length < 6) {
+      setForgotError("Password ઓછામાં ઓછો 6 અક્ષરનો હોવો જોઈએ.");
+      return;
+    }
+
+    if (forgotNewPassword !== forgotConfirmPassword) {
+      setForgotError("Password અને Confirm Password એકસરખા નથી.");
+      return;
+    }
+
+    try {
+      setForgotLoading(true);
+      const { data } = await API.post("/auth/reset-password", {
+        email: forgotEmail,
+        newPassword: forgotNewPassword,
+        confirmPassword: forgotConfirmPassword,
+      });
+
+      if (data.success) {
+        setForgotSuccess("Password સફળતાપૂર્વક બદલાઈ ગયો છે! હવે Login કરો.");
+        setFormData((prev) => ({ ...prev, email: forgotEmail }));
+        setTimeout(() => {
+          setShowForgotModal(false);
+          setForgotEmail("");
+          setForgotNewPassword("");
+          setForgotConfirmPassword("");
+          setForgotSuccess("");
+        }, 2200);
+      } else {
+        setForgotError(data.message || "Password reset થઈ શક્યો નથી.");
+      }
+    } catch (err) {
+      console.error("Reset Password error:", err);
+      setForgotError(
+        err.response?.data?.message || "Password reset કરવામાં ભૂલ આવી. ફરી પ્રયાસ કરો."
+      );
+    } finally {
+      setForgotLoading(false);
+    }
+  };
 
   // Input Change
   const handleChange = (e) => {
@@ -151,6 +212,22 @@ function Login() {
                 )}
               </button>
             </div>
+
+            {/* Forgot Password Link */}
+            <div className="flex justify-end mt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowForgotModal(true);
+                  setForgotError("");
+                  setForgotSuccess("");
+                  if (formData.email) setForgotEmail(formData.email);
+                }}
+                className="text-xs text-purple-400 hover:text-purple-300 transition"
+              >
+                Forgot Password?
+              </button>
+            </div>
           </div>
 
           {/* Error */}
@@ -182,6 +259,145 @@ function Login() {
           </Link>
         </p>
       </div>
+
+      {/* Forgot / Reset Password Modal */}
+      {showForgotModal && (
+        <div
+          className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !forgotLoading) {
+              setShowForgotModal(false);
+            }
+          }}
+        >
+          <div className="relative w-full max-w-md bg-[#12101d] border border-purple-500/30 rounded-2xl p-6 md:p-8 shadow-2xl">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-4 border-b border-white/10">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center text-purple-400">
+                  <KeyRound size={20} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">Forgot Password</h3>
+                  <p className="text-xs text-gray-400">Reset your ChatWave password</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => !forgotLoading && setShowForgotModal(false)}
+                className="text-gray-400 hover:text-white p-2 rounded-lg hover:bg-white/5 transition"
+              >
+                <X size={19} />
+              </button>
+            </div>
+
+            {/* Modal Form */}
+            <form onSubmit={handleResetPassword} className="space-y-4 mt-5">
+              {forgotError && (
+                <div className="bg-red-500/10 border border-red-500/30 text-red-400 p-3 rounded-xl text-xs">
+                  {forgotError}
+                </div>
+              )}
+
+              {forgotSuccess && (
+                <div className="bg-green-500/10 border border-green-500/30 text-green-400 p-3 rounded-xl text-xs flex items-center gap-2">
+                  <CheckCircle size={16} />
+                  <span>{forgotSuccess}</span>
+                </div>
+              )}
+
+              {/* Registered Email */}
+              <div>
+                <label className="block text-xs text-gray-300 mb-1.5 font-medium">
+                  Registered Email Address
+                </label>
+                <div className="relative">
+                  <Mail
+                    className="absolute left-4 top-3 text-purple-400"
+                    size={17}
+                  />
+                  <input
+                    type="email"
+                    placeholder="Enter your registered email"
+                    value={forgotEmail}
+                    onChange={(e) => setForgotEmail(e.target.value)}
+                    required
+                    className="w-full bg-[#1b1928] border border-gray-700 rounded-xl py-2.5 pl-11 pr-4 text-sm outline-none focus:border-purple-500 transition"
+                  />
+                </div>
+              </div>
+
+              {/* New Password */}
+              <div>
+                <label className="block text-xs text-gray-300 mb-1.5 font-medium">
+                  New Password (min 6 characters)
+                </label>
+                <div className="relative">
+                  <Lock
+                    className="absolute left-4 top-3 text-purple-400"
+                    size={17}
+                  />
+                  <input
+                    type={showForgotPass ? "text" : "password"}
+                    placeholder="Enter new password"
+                    value={forgotNewPassword}
+                    onChange={(e) => setForgotNewPassword(e.target.value)}
+                    required
+                    minLength={6}
+                    className="w-full bg-[#1b1928] border border-gray-700 rounded-xl py-2.5 pl-11 pr-11 text-sm outline-none focus:border-purple-500 transition"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowForgotPass(!showForgotPass)}
+                    className="absolute right-3.5 top-3 text-gray-400"
+                  >
+                    {showForgotPass ? <EyeOff size={17} /> : <Eye size={17} />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Confirm New Password */}
+              <div>
+                <label className="block text-xs text-gray-300 mb-1.5 font-medium">
+                  Confirm New Password
+                </label>
+                <div className="relative">
+                  <Lock
+                    className="absolute left-4 top-3 text-purple-400"
+                    size={17}
+                  />
+                  <input
+                    type={showForgotPass ? "text" : "password"}
+                    placeholder="Re-enter new password"
+                    value={forgotConfirmPassword}
+                    onChange={(e) => setForgotConfirmPassword(e.target.value)}
+                    required
+                    minLength={6}
+                    className="w-full bg-[#1b1928] border border-gray-700 rounded-xl py-2.5 pl-11 pr-4 text-sm outline-none focus:border-purple-500 transition"
+                  />
+                </div>
+              </div>
+
+              {/* Reset Submit Button */}
+              <button
+                type="submit"
+                disabled={forgotLoading}
+                className="w-full py-3 mt-2 rounded-xl bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-500 hover:to-violet-500 font-semibold shadow-lg shadow-purple-900/30 transition disabled:opacity-50 text-sm"
+              >
+                {forgotLoading ? "Resetting..." : "Reset Password"}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowForgotModal(false)}
+                className="w-full py-2.5 rounded-xl border border-gray-700 hover:bg-white/5 text-gray-400 hover:text-white transition text-xs"
+              >
+                Cancel
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

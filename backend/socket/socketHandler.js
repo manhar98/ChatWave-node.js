@@ -1,3 +1,4 @@
+
 import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
 
@@ -7,10 +8,18 @@ import Message from "../models/Message.js";
 
 let io;
 
-// userId -> કેટલા socket connection ખુલ્લા છે (ઘણા tab માટે)
+// userId -> Number of active socket connections
 const onlineConnections = new Map();
 
-// Deliver pending messages when a user comes online
+// Allowed Frontend Origins
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "https://chat-wave-node-js-15np.vercel.app",
+  process.env.FRONTEND_URL,
+].filter(Boolean);
+
+// Deliver Pending Messages
 const deliverPendingMessages = async (userId, chatId = null) => {
   try {
     const chatQuery = {
@@ -45,12 +54,16 @@ const deliverPendingMessages = async (userId, chatId = null) => {
             isDelivered: true,
             deliveredAt: new Date(),
           },
-        },
+        }
       );
 
       if (result.modifiedCount > 0) {
         const senderIds = [
-          ...new Set(pendingMessages.map((message) => String(message.sender))),
+          ...new Set(
+            pendingMessages.map((message) =>
+              String(message.sender)
+            )
+          ),
         ];
 
         const deliveryData = {
@@ -58,26 +71,39 @@ const deliverPendingMessages = async (userId, chatId = null) => {
           receiverId: userId.toString(),
         };
 
-        // Notify sender directly
+        // Notify message senders
         senderIds.forEach((senderId) => {
-          io.to(`user:${senderId}`).emit("messages_delivered", deliveryData);
+          io.to(`user:${senderId}`).emit(
+            "messages_delivered",
+            deliveryData
+          );
         });
 
-        // Notify users currently inside this chat
-        io.to(`chat:${chat._id}`).emit("messages_delivered", deliveryData);
+        // Notify users inside chat
+        io.to(`chat:${chat._id}`).emit(
+          "messages_delivered",
+          deliveryData
+        );
       }
     }
   } catch (error) {
-    console.log("Pending Messages Delivery Error:", error.message);
+    console.log(
+      "Pending Messages Delivery Error:",
+      error.message
+    );
   }
 };
 
-// Online / Offline status ને તે user સાથે chat ધરાવતા બધાને મોકલો
-const broadcastUserStatus = async (userId, isOnline, lastSeen) => {
+// Broadcast Online / Offline Status
+const broadcastUserStatus = async (
+  userId,
+  isOnline,
+  lastSeen
+) => {
   try {
-    const chats = await Chat.find({ participants: userId }).select(
-      "participants",
-    );
+    const chats = await Chat.find({
+      participants: userId,
+    }).select("participants");
 
     const contactIds = new Set();
 
@@ -85,7 +111,9 @@ const broadcastUserStatus = async (userId, isOnline, lastSeen) => {
       chat.participants.forEach((participantId) => {
         const id = String(participantId);
 
-        if (id !== String(userId)) contactIds.add(id);
+        if (id !== String(userId)) {
+          contactIds.add(id);
+        }
       });
     });
 
@@ -96,38 +124,67 @@ const broadcastUserStatus = async (userId, isOnline, lastSeen) => {
     };
 
     contactIds.forEach((contactId) => {
-      io.to(`user:${contactId}`).emit("user_status", statusData);
+      io.to(`user:${contactId}`).emit(
+        "user_status",
+        statusData
+      );
     });
   } catch (error) {
-    console.log("Broadcast User Status Error:", error.message);
+    console.log(
+      "Broadcast User Status Error:",
+      error.message
+    );
   }
 };
 
+// Initialize Socket.IO
 export const initSocket = (server) => {
   io = new Server(server, {
     cors: {
-      origin: process.env.FRONTEND_URL || "http://localhost:5173",
+      origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin)) {
+          callback(null, true);
+        } else {
+          callback(
+            new Error("Socket.IO CORS: Origin not allowed")
+          );
+        }
+      },
+      methods: ["GET", "POST"],
       credentials: true,
     },
   });
 
-  // Server restart થાય ત્યારે જૂના "online" status સાફ કરો
-  User.updateMany({ isOnline: true }, { $set: { isOnline: false } }).catch(
-    (error) => console.log("Reset Online Status Error:", error.message),
-  );
+  // Reset old online statuses after server restart
+  User.updateMany(
+    { isOnline: true },
+    { $set: { isOnline: false } }
+  ).catch((error) => {
+    console.log(
+      "Reset Online Status Error:",
+      error.message
+    );
+  });
 
-  // Verify User Token
+  // JWT Authentication
   io.use(async (socket, next) => {
     try {
-      const token = socket.handshake.auth.token;
+      const token = socket.handshake.auth?.token;
 
       if (!token) {
-        return next(new Error("Authentication token required"));
+        return next(
+          new Error("Authentication token required")
+        );
       }
 
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const decoded = jwt.verify(
+        token,
+        process.env.JWT_SECRET
+      );
 
-      const user = await User.findById(decoded.userId).select("_id fullName");
+      const user = await User.findById(
+        decoded.userId
+      ).select("_id fullName");
 
       if (!user) {
         return next(new Error("User not found"));
@@ -137,11 +194,12 @@ export const initSocket = (server) => {
 
       next();
     } catch (error) {
+      console.log("Socket Authentication Error:", error.message);
       next(new Error("Invalid or expired token"));
     }
   });
 
-  // User Connected
+  // User Connection
   io.on("connection", async (socket) => {
     const userId = socket.user._id.toString();
 
@@ -150,21 +208,36 @@ export const initSocket = (server) => {
     // Join personal room
     socket.join(`user:${userId}`);
 
-    // Online connection ગણતરી
-    const previousCount = onlineConnections.get(userId) || 0;
-    onlineConnections.set(userId, previousCount + 1);
+    // Count active connections
+    const previousCount =
+      onlineConnections.get(userId) || 0;
 
-    // પહેલું connection હોય ત્યારે જ Online કરો
+    onlineConnections.set(
+      userId,
+      previousCount + 1
+    );
+
+    // First connection means Online
     if (previousCount === 0) {
       try {
-        await User.findByIdAndUpdate(userId, { isOnline: true });
-        await broadcastUserStatus(userId, true, null);
+        await User.findByIdAndUpdate(userId, {
+          isOnline: true,
+        });
+
+        await broadcastUserStatus(
+          userId,
+          true,
+          null
+        );
       } catch (error) {
-        console.log("Set Online Error:", error.message);
+        console.log(
+          "Set Online Error:",
+          error.message
+        );
       }
     }
 
-    // User Online - Deliver Pending Messages
+    // Deliver pending messages when user comes online
     socket.on("user_online", async () => {
       await deliverPendingMessages(userId);
     });
@@ -186,8 +259,10 @@ export const initSocket = (server) => {
 
         socket.join(`chat:${chatId}`);
 
-        // Deliver pending messages before confirming join
-        await deliverPendingMessages(userId, chatId);
+        await deliverPendingMessages(
+          userId,
+          chatId
+        );
 
         callback?.({
           success: true,
@@ -196,7 +271,10 @@ export const initSocket = (server) => {
 
         console.log("User Joined Chat:", chatId);
       } catch (error) {
-        console.log("Join Chat Error:", error.message);
+        console.log(
+          "Join Chat Error:",
+          error.message
+        );
 
         callback?.({
           success: false,
@@ -205,38 +283,53 @@ export const initSocket = (server) => {
       }
     });
 
-    // Typing started
+    // Typing Started
     socket.on("typing", (chatId) => {
-      if (!chatId || !socket.rooms.has(`chat:${chatId}`)) return;
+      if (
+        !chatId ||
+        !socket.rooms.has(`chat:${chatId}`)
+      ) {
+        return;
+      }
 
-      socket.to(`chat:${chatId}`).emit("user_typing", {
-        chatId: String(chatId),
-        userId,
-      });
+      socket
+        .to(`chat:${chatId}`)
+        .emit("user_typing", {
+          chatId: String(chatId),
+          userId,
+        });
     });
 
-    // Typing stopped
+    // Typing Stopped
     socket.on("stop_typing", (chatId) => {
-      if (!chatId || !socket.rooms.has(`chat:${chatId}`)) return;
+      if (
+        !chatId ||
+        !socket.rooms.has(`chat:${chatId}`)
+      ) {
+        return;
+      }
 
-      socket.to(`chat:${chatId}`).emit("user_stop_typing", {
-        chatId: String(chatId),
-        userId,
-      });
+      socket
+        .to(`chat:${chatId}`)
+        .emit("user_stop_typing", {
+          chatId: String(chatId),
+          userId,
+        });
     });
 
     // User Disconnected
     socket.on("disconnect", async () => {
       console.log("User Disconnected:", userId);
 
-      const remaining = (onlineConnections.get(userId) || 1) - 1;
+      const remaining =
+        (onlineConnections.get(userId) || 1) - 1;
 
       if (remaining > 0) {
         onlineConnections.set(userId, remaining);
         return;
       }
 
-      // છેલ્લું connection બંધ થયું → Offline + Last Seen
+      // Last connection closed
       onlineConnections.delete(userId);
 
       try {
@@ -247,9 +340,16 @@ export const initSocket = (server) => {
           lastSeen,
         });
 
-        await broadcastUserStatus(userId, false, lastSeen);
+        await broadcastUserStatus(
+          userId,
+          false,
+          lastSeen
+        );
       } catch (error) {
-        console.log("Set Offline Error:", error.message);
+        console.log(
+          "Set Offline Error:",
+          error.message
+        );
       }
     });
   });
@@ -262,7 +362,9 @@ export const initSocket = (server) => {
 // Get Socket Instance
 export const getIO = () => {
   if (!io) {
-    throw new Error("Socket.IO is not initialized");
+    throw new Error(
+      "Socket.IO is not initialized"
+    );
   }
 
   return io;

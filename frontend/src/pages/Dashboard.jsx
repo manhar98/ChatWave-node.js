@@ -196,6 +196,30 @@ function Dashboard() {
     );
   };
 
+  // Auto-detect and render links in message content
+  const renderMessageContent = (content) => {
+    if (!content) return content;
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const parts = content.split(urlRegex);
+    return parts.map((part, index) => {
+      if (/^https?:\/\/[^\s]+$/.test(part)) {
+        return (
+          <a
+            key={index}
+            href={part}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline text-blue-300 hover:text-blue-200 break-all"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {part}
+          </a>
+        );
+      }
+      return part;
+    });
+  };
+
   // Pinned messages
   const pinnedMessages = messages.filter(
     (msg) => msg.isPinned && !msg.isDeletedForEveryone,
@@ -2233,7 +2257,9 @@ function Dashboard() {
                             >
                               {msg.isDeletedForEveryone
                                 ? "This message was deleted"
-                                : highlightMessage(msg.content)}
+                                : messageSearch.trim()
+                                  ? highlightMessage(msg.content)
+                                  : renderMessageContent(msg.content)}
                             </p>
 
                             {msg.isEdited && !msg.isDeletedForEveryone && (

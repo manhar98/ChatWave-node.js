@@ -8,6 +8,7 @@ import {
   getMyProfile,
   updateMyProfile,
   searchUsers,
+  deleteMyAccount,
 } from "../controllers/userController.js";
 
 const router = express.Router();
@@ -25,5 +26,8 @@ router.put(
 
 // Search Users
 router.get("/search", protectRoute, searchUsers);
+
+// Delete My Account
+router.delete("/account", protectRoute, deleteMyAccount);
 
 export default router;

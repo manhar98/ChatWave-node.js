@@ -1,7 +1,7 @@
 
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Camera, Save, User, Mail, FileText } from "lucide-react";
+import { ArrowLeft, Camera, Save, User, Mail, FileText, Trash2 } from "lucide-react";
 import API from "../utils/api";
 
 const API_BASE_URL =
@@ -22,6 +22,7 @@ function Profile() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -76,8 +77,7 @@ function Profile() {
   };
 
   // Update Profile
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (e) => {    e.preventDefault();
 
     try {
       setSaving(true);
@@ -116,6 +116,28 @@ function Profile() {
       );
     } finally {
       setSaving(false);
+    }
+  };
+
+  // Delete Account
+  const handleDeleteAccount = async () => {
+    const confirmed = window.confirm(
+      "શું તમે ખરેખર તમારો account delete કરવા માંગો છો?\nઆ action undo નહીં થઈ શકે."
+    );
+    if (!confirmed) return;
+    try {
+      setDeleting(true);
+      setError("");
+      await API.delete("/users/account");
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      window.dispatchEvent(new Event("auth-change"));
+      window.location.href = "/register";
+    } catch (err) {
+      console.log("Delete Account Error:", err);
+      setError(err.response?.data?.message || "Account delete થઈ શક્યો નથી.");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -285,6 +307,17 @@ function Profile() {
           >
             <Save size={19} />
             {saving ? "Saving..." : "Save Changes"}
+          </button>
+
+          {/* Delete Account Button */}
+          <button
+            type="button"
+            disabled={deleting || saving}
+            onClick={handleDeleteAccount}
+            className="w-full mt-4 bg-red-600/10 border border-red-500/40 hover:bg-red-600/20 text-red-400 disabled:opacity-50 rounded-xl py-4 font-semibold flex items-center justify-center gap-2 transition"
+          >
+            <Trash2 size={19} />
+            {deleting ? "Deleting..." : "Delete My Account"}
           </button>
 
         </form>

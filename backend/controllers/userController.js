@@ -1,5 +1,8 @@
 
 import User from "../models/User.js";
+import Message from "../models/Message.js";
+import Chat from "../models/Chat.js";
+import Status from "../models/Status.js";
 
 // Get My Profile
 export const getMyProfile = async (req, res) => {
@@ -130,4 +133,39 @@ export const searchUsers = async (req, res) => {
     });
   }
 };
-  
+
+// Delete My Account
+export const deleteMyAccount = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    // Soft-delete user's sent messages
+    await Message.updateMany(
+      { sender: userId },
+      { $set: { isDeletedForEveryone: true, content: "This message was deleted" } }
+    );
+
+    // Remove user from all chats
+    await Chat.updateMany(
+      { participants: userId },
+      { $pull: { participants: userId } }
+    );
+
+    // Delete chats that now have 0 or 1 participant
+    await Chat.deleteMany({ $expr: { $lte: [{ $size: "$participants" }, 1] } });
+
+    // Delete user's statuses
+    await Status.deleteMany({ user: userId });
+
+    // Delete the user
+    await User.findByIdAndDelete(userId);
+
+    return res.status(200).json({
+      success: true,
+      message: "Account deleted successfully",
+    });
+  } catch (error) {
+    console.log("Delete Account Error:", error.message);
+    return res.status(500).json({ success: false, message: "Internal Server Error" });
+  }
+};

@@ -65,11 +65,6 @@ function Profile() {
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      setError("Image 5 MB કરતાં નાની હોવી જોઈએ.");
-      return;
-    }
-
     setSelectedFile(file);
     setPreview(URL.createObjectURL(file));
     setError("");

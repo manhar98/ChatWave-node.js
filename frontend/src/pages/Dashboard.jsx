@@ -154,6 +154,33 @@ function Dashboard() {
   // Chat / Status tabs
   const [activeTab, setActiveTab] = useState("chats");
 
+  // User Profile Modal (WhatsApp-style contact view)
+  const [showUserProfile, setShowUserProfile] = useState(false);
+  const [viewingUser, setViewingUser] = useState(null);
+  const [editingNickname, setEditingNickname] = useState(false);
+  const [nicknameInput, setNicknameInput] = useState("");
+
+  // Nicknames stored in localStorage
+  const getNickname = (userId) => {
+    if (!userId) return "";
+    try {
+      const nicks = JSON.parse(localStorage.getItem("chatwave_nicknames") || "{}");
+      return nicks[String(userId)] || "";
+    } catch { return ""; }
+  };
+
+  const saveNickname = (userId, name) => {
+    try {
+      const nicks = JSON.parse(localStorage.getItem("chatwave_nicknames") || "{}");
+      if (name.trim()) {
+        nicks[String(userId)] = name.trim();
+      } else {
+        delete nicks[String(userId)];
+      }
+      localStorage.setItem("chatwave_nicknames", JSON.stringify(nicks));
+    } catch {}
+  };
+
   // Starred messages states
   const [starredMessages, setStarredMessages] = useState([]);
   const [showStarredMessages, setShowStarredMessages] = useState(false);
@@ -2102,11 +2129,23 @@ function Dashboard() {
                   <GroupAvatar size="w-12 h-12" />
                 ) : (
                   <>
-                    <UserAvatar
-                      profilePic={otherUser?.profilePic}
-                      fullName={otherUser?.fullName}
-                      size="w-12 h-12"
-                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setViewingUser(otherUser);
+                        setNicknameInput(getNickname(otherUser?._id || otherUser?.id));
+                        setEditingNickname(false);
+                        setShowUserProfile(true);
+                      }}
+                      className="block rounded-full focus:outline-none"
+                      title="View profile"
+                    >
+                      <UserAvatar
+                        profilePic={otherUser?.profilePic}
+                        fullName={otherUser?.fullName}
+                        size="w-12 h-12"
+                      />
+                    </button>
 
                     <span
                       className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[#080711] ${
@@ -2117,9 +2156,22 @@ function Dashboard() {
                 )}
               </div>
 
-              <div className="min-w-0">
+              <button
+                type="button"
+                className="min-w-0 text-left"
+                onClick={() => {
+                  if (!selectedChat.isGroupChat && otherUser) {
+                    setViewingUser(otherUser);
+                    setNicknameInput(getNickname(otherUser?._id || otherUser?.id));
+                    setEditingNickname(false);
+                    setShowUserProfile(true);
+                  }
+                }}
+              >
                 <h2 className="font-bold text-lg truncate">
-                  {getChatTitle(selectedChat)}
+                  {selectedChat.isGroupChat
+                    ? getChatTitle(selectedChat)
+                    : getNickname(otherUser?._id || otherUser?.id) || getChatTitle(selectedChat)}
                 </h2>
 
                 {selectedChat.isGroupChat ? (
@@ -2137,15 +2189,7 @@ function Dashboard() {
                       : `● Last seen: ${formatLastSeen(otherUser?.lastSeen)}`}
                   </p>
                 )}
-
-                <p
-                  className={`text-[10px] ${
-                    isConnected ? "text-green-400" : "text-red-400"
-                  }`}
-                >
-                  {isConnected ? "Socket Connected" : "Socket Disconnected"}
-                </p>
-              </div>
+              </button>
 
               {selectedChat.isGroupChat && (
                 <button
@@ -3559,6 +3603,140 @@ function Dashboard() {
         </div>
       )}
       {/* ============== END SETTINGS MODAL ============== */}
+
+      {/* ============== USER PROFILE MODAL (WhatsApp-style) ============== */}
+      {showUserProfile && viewingUser && (
+        <div
+          className="fixed inset-0 z-[13000] bg-black/75 flex items-end sm:items-center justify-center sm:p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowUserProfile(false);
+              setEditingNickname(false);
+            }
+          }}
+        >
+          <div className="w-full sm:max-w-sm bg-[#111020] border border-purple-500/20 rounded-t-3xl sm:rounded-2xl shadow-2xl overflow-hidden">
+
+            {/* Close button */}
+            <div className="flex justify-end p-3">
+              <button
+                type="button"
+                onClick={() => { setShowUserProfile(false); setEditingNickname(false); }}
+                className="p-2 rounded-xl hover:bg-white/10 text-gray-400 hover:text-white transition"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Profile Photo */}
+            <div className="flex flex-col items-center px-6 pb-5">
+              <div className="rounded-full p-[3px] border-[3px] border-purple-500 mb-4">
+                <div className="w-28 h-28 rounded-full bg-purple-600 overflow-hidden flex items-center justify-center text-4xl font-bold">
+                  {viewingUser.profilePic ? (
+                    <img
+                      src={
+                        viewingUser.profilePic.startsWith("http")
+                          ? viewingUser.profilePic
+                          : `${SERVER_URL}${viewingUser.profilePic}`
+                      }
+                      alt={viewingUser.fullName}
+                      className="w-full h-full object-cover"
+                      onError={(e) => { e.target.style.display = "none"; }}
+                    />
+                  ) : (
+                    viewingUser.fullName?.charAt(0)?.toUpperCase() || "U"
+                  )}
+                </div>
+              </div>
+
+              {/* Name + online */}
+              <h2 className="text-xl font-bold text-white text-center">
+                {viewingUser.fullName}
+              </h2>
+
+              <p className={`text-sm mt-1 ${viewingUser.isOnline ? "text-green-400" : "text-gray-400"}`}>
+                {viewingUser.isOnline ? "● Online" : `● Last seen: ${formatLastSeen(viewingUser.lastSeen)}`}
+              </p>
+
+              {/* Email */}
+              <p className="text-xs text-gray-500 mt-1">{viewingUser.email || ""}</p>
+
+              {/* Bio */}
+              {viewingUser.bio && (
+                <div className="mt-4 w-full bg-white/5 rounded-xl px-4 py-3 text-center">
+                  <p className="text-xs text-gray-400 mb-1 font-semibold uppercase tracking-widest">About</p>
+                  <p className="text-sm text-gray-200 break-words">{viewingUser.bio}</p>
+                </div>
+              )}
+
+              {/* Nickname */}
+              <div className="mt-4 w-full bg-white/5 rounded-xl px-4 py-3">
+                <p className="text-xs text-gray-400 font-semibold uppercase tracking-widest mb-2">Nickname</p>
+
+                {editingNickname ? (
+                  <div className="flex gap-2 items-center">
+                    <input
+                      type="text"
+                      value={nicknameInput}
+                      onChange={(e) => setNicknameInput(e.target.value)}
+                      placeholder="Enter a nickname..."
+                      maxLength={30}
+                      autoFocus
+                      className="flex-1 bg-[#1b1928] border border-purple-500/50 rounded-xl px-3 py-2 text-sm outline-none focus:border-purple-400"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          saveNickname(viewingUser._id || viewingUser.id, nicknameInput);
+                          setEditingNickname(false);
+                        }
+                        if (e.key === "Escape") setEditingNickname(false);
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        saveNickname(viewingUser._id || viewingUser.id, nicknameInput);
+                        setEditingNickname(false);
+                      }}
+                      className="bg-purple-600 hover:bg-purple-700 text-white text-xs px-3 py-2 rounded-xl transition"
+                    >
+                      Save
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditingNickname(false)}
+                      className="text-gray-400 hover:text-white text-xs px-2 py-2"
+                    >
+                      <X size={15} />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setEditingNickname(true)}
+                    className="w-full flex items-center justify-between gap-2 hover:bg-white/5 rounded-lg py-1 transition"
+                  >
+                    <span className={`text-sm ${getNickname(viewingUser._id || viewingUser.id) ? "text-white" : "text-gray-500 italic"}`}>
+                      {getNickname(viewingUser._id || viewingUser.id) || "Add a nickname..."}
+                    </span>
+                    <span className="text-xs text-purple-400">Edit</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Message button */}
+              <button
+                type="button"
+                onClick={() => setShowUserProfile(false)}
+                className="mt-5 w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-xl py-3 flex items-center justify-center gap-2 transition"
+              >
+                <MessageCircle size={18} />
+                Send Message
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ============== END USER PROFILE MODAL ============== */}
 
     </div>
   );

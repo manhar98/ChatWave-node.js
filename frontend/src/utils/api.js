@@ -1,7 +1,13 @@
+
 import axios from "axios";
 
+// Backend URL
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  "https://chatwave-node-js.onrender.com";
+
 const API = axios.create({
-  baseURL: `${import.meta.env.VITE_API_URL}/api`,
+  baseURL: `${API_URL.replace(/\/$/, "")}/api`,
   withCredentials: true,
 });
 

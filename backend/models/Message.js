@@ -96,6 +96,14 @@ const messageSchema = new mongoose.Schema(
       },
     ],
 
+    // Track which users have read this message (for group chats)
+    readBy: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+
     // Read status
     isRead: {
       type: Boolean,

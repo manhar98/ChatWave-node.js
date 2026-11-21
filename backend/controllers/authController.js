@@ -46,6 +46,7 @@ export const registerUser = async (req, res) => {
       success: true,
       message: "User registered successfully",
       user: {
+        _id: newUser._id,
         id: newUser._id,
         fullName: newUser.fullName,
         email: newUser.email,
@@ -116,6 +117,7 @@ export const loginUser = async (req, res) => {
       message: "Login successful",
       token,
       user: {
+        _id: user._id,
         id: user._id,
         fullName: user.fullName,
         email: user.email,

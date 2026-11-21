@@ -32,7 +32,8 @@ import { useSocket } from "../context/SocketContext";
 const API_BASE_URL =
   import.meta.env.VITE_API_URL || "http://localhost:8000/api";
 
-const SERVER_URL = API_BASE_URL.replace(/\/api\/?$/, "");
+// Strip trailing /api if present to get server root URL
+const SERVER_URL = API_BASE_URL.replace(/\/api\/?$/, "").replace(/\/$/, "");
 
 const getProfileImage = (profilePic) => {
   if (!profilePic) return "";

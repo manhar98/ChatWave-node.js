@@ -151,6 +151,9 @@ function Dashboard() {
   const [showSettings, setShowSettings] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
 
+  // Chat / Status tabs
+  const [activeTab, setActiveTab] = useState("chats");
+
   // Starred messages states
   const [starredMessages, setStarredMessages] = useState([]);
   const [showStarredMessages, setShowStarredMessages] = useState(false);
@@ -1683,14 +1686,6 @@ function Dashboard() {
         </button>
 
         <button
-          onClick={() => (window.location.href = "/profile")}
-          className="w-full flex items-center justify-center md:justify-start gap-3 p-3 mt-3 rounded-xl hover:bg-white/5 text-gray-400"
-        >
-          <User size={21} />
-          <span className="hidden md:block">My Profile</span>
-        </button>
-
-        <button
           onClick={() => setShowSettings(true)}
           className="w-full flex items-center justify-center md:justify-start gap-3 p-3 mt-3 rounded-xl hover:bg-white/5 text-gray-400"
         >
@@ -1698,20 +1693,24 @@ function Dashboard() {
           <span className="hidden md:block">Settings</span>
         </button>
 
-        {/* User avatar at bottom */}
+        {/* Profile avatar at bottom — single entry point */}
         <div className="mt-auto">
           <button
             onClick={() => setShowSettings(true)}
-            className="w-full flex items-center justify-center md:justify-start gap-3 p-3 rounded-xl hover:bg-white/5"
+            className="w-full flex items-center justify-center md:justify-start gap-2 p-2 rounded-xl hover:bg-white/5 transition"
+            title="Settings & Profile"
           >
-            <UserAvatar
-              profilePic={user?.profilePic}
-              fullName={user?.fullName}
-              size="w-8 h-8"
-            />
-            <span className="hidden md:block text-sm font-medium truncate text-gray-300">
-              {user?.fullName || "Account"}
-            </span>
+            <div className="rounded-full p-[2px] border-2 border-purple-500 shrink-0">
+              <UserAvatar
+                profilePic={user?.profilePic}
+                fullName={user?.fullName}
+                size="w-8 h-8"
+              />
+            </div>
+            <div className="hidden md:block text-left min-w-0">
+              <p className="text-sm font-semibold text-white truncate">{user?.fullName || "User"}</p>
+              <p className="text-xs text-gray-500 truncate">{user?.email || ""}</p>
+            </div>
           </button>
         </div>
       </aside>
@@ -1720,286 +1719,354 @@ function Dashboard() {
       <section
         className={`${
           selectedChat ? "hidden" : "flex"
-        } md:flex w-[calc(100%-4rem)] md:w-[31%] md:min-w-[320px] md:max-w-[560px] md:shrink-0 min-w-0 min-h-0 flex-col border-r border-purple-500/20 bg-[#0e0c18] p-3 sm:p-4 lg:p-5 overflow-y-auto`}
+        } md:flex w-[calc(100%-4rem)] md:w-[31%] md:min-w-[320px] md:max-w-[560px] md:shrink-0 min-w-0 min-h-0 flex-col border-r border-purple-500/20 bg-[#0e0c18] overflow-hidden`}
       >
-        <h2 className="text-2xl font-bold mb-2">Messages</h2>
+        {/* Header with app title */}
+        <div className="shrink-0 px-4 pt-4 pb-2">
+          <h2 className="text-xl font-bold">ChatWave</h2>
+        </div>
 
-        {/* WhatsApp Status Section — Horizontal circles */}
-        <div className="mb-5">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Status</h3>
+        {/* Tab bar — Chats | Status */}
+        <div className="shrink-0 flex border-b border-purple-500/20 mx-4">
+          <button
+            type="button"
+            onClick={() => setActiveTab("chats")}
+            className={`flex-1 py-2.5 text-sm font-semibold transition ${
+              activeTab === "chats"
+                ? "text-purple-400 border-b-2 border-purple-500"
+                : "text-gray-400 hover:text-gray-200"
+            }`}
+          >
+            Chats
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("status")}
+            className={`flex-1 py-2.5 text-sm font-semibold transition ${
+              activeTab === "status"
+                ? "text-purple-400 border-b-2 border-purple-500"
+                : "text-gray-400 hover:text-gray-200"
+            }`}
+          >
+            Status
+          </button>
+        </div>
+
+        {/* ---- CHATS TAB ---- */}
+        {activeTab === "chats" && (
+          <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 lg:p-5">
+
+            <div className="relative mb-4">
+              <Search className="absolute left-4 top-3.5 text-gray-400" size={19} />
+              <input
+                type="text"
+                placeholder="Search users by name or email..."
+                value={search}
+                onChange={handleSearch}
+                className="w-full bg-[#1b1928] border border-gray-700 rounded-xl py-3 pl-12 pr-4 outline-none focus:border-purple-500"
+              />
+            </div>
+
+            {loading && (
+              <p className="text-purple-400 text-sm mb-4">Searching users...</p>
+            )}
+
+            {error && <p className="text-red-400 text-sm mb-4">{error}</p>}
+
+            {!loading && users.length > 0 && (
+              <div className="space-y-3 mb-6">
+                <h3 className="text-sm text-gray-400">
+                  Search Results ({users.length})
+                </h3>
+
+                {users.map((item) => (
+                  <button
+                    key={item._id}
+                    onClick={() => handleStartChat(item)}
+                    className="w-full flex items-center gap-3 p-3 rounded-xl bg-[#1b1928] border border-gray-800 hover:border-purple-500/50 transition text-left"
+                  >
+                    <UserAvatar
+                      profilePic={item.profilePic}
+                      fullName={item.fullName}
+                    />
+
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-semibold truncate">{item.fullName}</h3>
+                      <p className="text-sm text-gray-400 truncate">{item.email}</p>
+                    </div>
+
+                    <Plus size={20} className="text-purple-400" />
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {!loading && search.trim() && users.length === 0 && !error && (
+              <p className="text-gray-500 text-sm mb-4">No users found.</p>
+            )}
+
+            <div className="mb-5">
+              <button
+                type="button"
+                onClick={() => setShowStarredMessages((value) => !value)}
+                className={`w-full flex items-center justify-between gap-3 p-3 rounded-xl border transition ${
+                  showStarredMessages
+                    ? "bg-yellow-500/15 border-yellow-500/40 text-yellow-200"
+                    : "bg-[#1b1928] border-gray-800 hover:border-yellow-500/40 text-gray-300"
+                }`}
+              >
+                <span className="flex items-center gap-2">
+                  <Star size={18} className="text-yellow-400" />
+                  <span className="font-semibold text-sm">Starred Messages</span>
+                </span>
+
+                <span className="text-xs rounded-full bg-yellow-500/20 px-2 py-1 text-yellow-200">
+                  {starredMessages.length}
+                </span>
+              </button>
+
+              {showStarredMessages && (
+                <div className="mt-2 max-h-64 overflow-y-auto space-y-2">
+                  {starredMessages.length === 0 ? (
+                    <p className="text-xs text-gray-500 p-3">
+                      You have no starred messages yet.
+                    </p>
+                  ) : (
+                    starredMessages.map((starredMsg) => {
+                      const starredChatId = starredMsg.chat?._id || starredMsg.chat;
+
+                      const starredChat = chats.find(
+                        (chat) => String(chat._id) === String(starredChatId),
+                      );
+
+                      return (
+                        <button
+                          key={starredMsg._id}
+                          type="button"
+                          onClick={() => handleOpenStarredMessage(starredMsg)}
+                          className="w-full text-left rounded-xl border border-yellow-500/20 bg-[#1b1928] hover:bg-yellow-500/10 p-3 transition"
+                        >
+                          <div className="flex items-center gap-2 mb-1">
+                            <Star size={13} className="text-yellow-400 shrink-0" />
+
+                            <span className="text-xs text-yellow-200 font-semibold truncate">
+                              {starredChat
+                                ? getChatTitle(starredChat)
+                                : starredMsg.sender?.fullName || "Starred message"}
+                            </span>
+                          </div>
+
+                          <p className="text-xs text-gray-300 line-clamp-2 break-words">
+                            {starredMsg.content}
+                          </p>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="border-t border-gray-800 pt-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-gray-300">Conversations</h3>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setGroupError("");
+                    setShowGroupModal(true);
+                  }}
+                  className="flex items-center gap-1 text-purple-400 text-xs hover:text-purple-300"
+                >
+                  <Users size={15} />
+                  New Group
+                </button>
+              </div>
+
+              {chatLoading && (
+                <p className="text-purple-400 text-sm">Loading chats...</p>
+              )}
+
+              {chatError && (
+                <p className="text-red-400 text-sm mb-3">{chatError}</p>
+              )}
+
+              {!chatLoading && chats.length === 0 && (
+                <p className="text-gray-500 text-sm">
+                  No conversations yet. Search for a friend to start chatting.
+                </p>
+              )}
+
+              <div className="space-y-1">
+                {chats.map((chat) => {
+                  const chatOtherUser = getOtherUser(chat);
+
+                  return (
+                    <button
+                      key={chat._id}
+                      onClick={() => setSelectedChat(chat)}
+                      className={`w-full flex items-center gap-3 p-3 rounded-xl text-left transition ${
+                        selectedChat?._id === chat._id
+                          ? "bg-purple-600/20 border border-purple-500/40"
+                          : "hover:bg-white/5 border border-transparent"
+                      }`}
+                    >
+                      <div className="relative">
+                        {chat.isGroupChat ? (
+                          <GroupAvatar />
+                        ) : (
+                          <>
+                            <UserAvatar
+                              profilePic={chatOtherUser?.profilePic}
+                              fullName={chatOtherUser?.fullName}
+                            />
+
+                            <span
+                              className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[#0e0c18] ${
+                                chatOtherUser?.isOnline
+                                  ? "bg-green-400"
+                                  : "bg-gray-500"
+                              }`}
+                            />
+                          </>
+                        )}
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-1 mb-0.5">
+                          <h4 className="font-semibold truncate">
+                            {getChatTitle(chat)}
+                          </h4>
+                          {chat.latestMessage?.createdAt && (
+                            <span className="shrink-0 text-[11px] text-gray-500">
+                              {new Date(chat.latestMessage.createdAt).toLocaleTimeString([], {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center justify-between gap-2 min-w-0">
+                          <p className="text-xs text-gray-400 truncate">
+                            {chat.latestMessage?.content || "Start a conversation"}
+                          </p>
+
+                          {chat.unreadCount > 0 && (
+                            <span className="shrink-0 min-w-5 h-5 px-1 rounded-full bg-green-500 text-white text-xs font-bold flex items-center justify-center">
+                              {chat.unreadCount > 99 ? "99+" : chat.unreadCount}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ---- STATUS TAB ---- */}
+        {activeTab === "status" && (
+          <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4">
+
+            {/* Add Status button */}
             <button
               type="button"
               onClick={() => { setStatusError(""); setShowStatusUpload(true); }}
-              className="text-xs text-purple-400 hover:text-purple-300 transition"
-            >
-              + Add
-            </button>
-          </div>
-
-          <div className="flex gap-4 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
-            {/* My Status circle */}
-            <button
-              type="button"
-              onClick={handleOpenMyStatus}
-              className="flex flex-col items-center gap-1.5 shrink-0"
+              className="w-full flex items-center gap-3 p-3 rounded-xl bg-purple-600/15 border border-purple-500/30 hover:bg-purple-600/25 mb-4 transition"
             >
               <div className="relative">
-                <div className="rounded-full p-[2.5px] border-[2.5px] border-purple-500">
-                  <UserAvatar
-                    profilePic={user?.profilePic}
-                    fullName={user?.fullName}
-                    size="w-13 h-13"
-                  />
+                <div className="rounded-full p-[2px] border-2 border-purple-500">
+                  <UserAvatar profilePic={user?.profilePic} fullName={user?.fullName} />
                 </div>
                 <span className="absolute bottom-0 right-0 w-5 h-5 rounded-full bg-purple-600 border-2 border-[#0e0c18] flex items-center justify-center">
                   <Plus size={11} />
                 </span>
               </div>
-              <p className="text-[11px] text-gray-300 w-14 truncate text-center">My Status</p>
+              <div className="text-left min-w-0">
+                <p className="font-semibold text-sm">My Status</p>
+                <p className="text-xs text-gray-400">Tap to add a photo or video</p>
+              </div>
+              <Camera size={18} className="ml-auto text-purple-400" />
             </button>
 
-            {/* Others' status circles */}
-            {statuses
-              .filter((status) => String(status.user?._id || status.user) !== String(currentUserId))
-              .map((status) => (
-                <button
-                  key={status._id}
-                  type="button"
-                  onClick={() =>
-                    handleOpenStatus(statuses.findIndex((item) => item._id === status._id))
-                  }
-                  className="flex flex-col items-center gap-1.5 shrink-0"
-                >
-                  <div className="rounded-full p-[2.5px] border-[2.5px] border-green-400">
-                    <UserAvatar
-                      profilePic={status.user?.profilePic}
-                      fullName={status.user?.fullName || status.user?.name || "User"}
-                      size="w-13 h-13"
-                    />
-                  </div>
-                  <p className="text-[11px] text-gray-300 w-14 truncate text-center">
-                    {(status.user?.fullName || "User").split(" ")[0]}
-                  </p>
-                </button>
-              ))}
-          </div>
-
-          {statusError && (
-            <p className="text-red-400 text-xs mt-1">{statusError}</p>
-          )}
-        </div>
-
-        <div className="relative mb-6">
-          <Search className="absolute left-4 top-3.5 text-gray-400" size={19} />
-
-          <input
-            type="text"
-            placeholder="Search users by name or email..."
-            value={search}
-            onChange={handleSearch}
-            className="w-full bg-[#1b1928] border border-gray-700 rounded-xl py-3 pl-12 pr-4 outline-none focus:border-purple-500"
-          />
-        </div>
-
-        {loading && (
-          <p className="text-purple-400 text-sm mb-4">Searching users...</p>
-        )}
-
-        {error && <p className="text-red-400 text-sm mb-4">{error}</p>}
-
-        {!loading && users.length > 0 && (
-          <div className="space-y-3 mb-6">
-            <h3 className="text-sm text-gray-400">
-              Search Results ({users.length})
-            </h3>
-
-            {users.map((item) => (
+            {/* My current status (view if exists) */}
+            {statuses.some((s) => String(s.user?._id || s.user) === String(currentUserId)) && (
               <button
-                key={item._id}
-                onClick={() => handleStartChat(item)}
-                className="w-full flex items-center gap-3 p-3 rounded-xl bg-[#1b1928] border border-gray-800 hover:border-purple-500/50 transition text-left"
+                type="button"
+                onClick={handleOpenMyStatus}
+                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 mb-4 transition text-left"
               >
-                <UserAvatar
-                  profilePic={item.profilePic}
-                  fullName={item.fullName}
-                />
-
-                <div className="min-w-0 flex-1">
-                  <h3 className="font-semibold truncate">{item.fullName}</h3>
-                  <p className="text-sm text-gray-400 truncate">{item.email}</p>
+                <div className="rounded-full p-[2.5px] border-[2.5px] border-purple-500">
+                  <UserAvatar profilePic={user?.profilePic} fullName={user?.fullName} />
                 </div>
-
-                <Plus size={20} className="text-purple-400" />
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold text-sm">My Status</p>
+                  <p className="text-xs text-gray-400">Tap to view</p>
+                </div>
               </button>
-            ))}
+            )}
+
+            {/* Others' statuses */}
+            {statuses.filter((s) => String(s.user?._id || s.user) !== String(currentUserId)).length > 0 && (
+              <>
+                <p className="text-xs text-gray-500 font-semibold uppercase tracking-widest mb-2 px-1">Recent Updates</p>
+                <div className="space-y-1">
+                  {statuses
+                    .filter((status) => String(status.user?._id || status.user) !== String(currentUserId))
+                    .map((status) => (
+                      <button
+                        key={status._id}
+                        type="button"
+                        onClick={() =>
+                          handleOpenStatus(statuses.findIndex((item) => item._id === status._id))
+                        }
+                        className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 transition text-left"
+                      >
+                        <div className="rounded-full p-[2.5px] border-[2.5px] border-green-400">
+                          <UserAvatar
+                            profilePic={status.user?.profilePic}
+                            fullName={status.user?.fullName || "User"}
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-sm truncate">
+                            {status.user?.fullName || "User"}
+                          </p>
+                          <p className="text-xs text-gray-400">
+                            {new Date(status.createdAt).toLocaleTimeString([], {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </p>
+                        </div>
+                        {status.mediaType === "video" && (
+                          <Play size={16} className="text-purple-400 shrink-0" />
+                        )}
+                      </button>
+                    ))}
+                </div>
+              </>
+            )}
+
+            {statuses.filter((s) => String(s.user?._id || s.user) !== String(currentUserId)).length === 0 && (
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <div className="w-16 h-16 rounded-full bg-purple-600/20 flex items-center justify-center mb-4">
+                  <Camera size={28} className="text-purple-400" />
+                </div>
+                <p className="text-gray-400 text-sm">No recent status updates</p>
+                <p className="text-gray-600 text-xs mt-1">Your contacts' updates will appear here</p>
+              </div>
+            )}
+
+            {statusError && (
+              <p className="text-red-400 text-xs mt-2">{statusError}</p>
+            )}
           </div>
         )}
-
-        {!loading && search.trim() && users.length === 0 && !error && (
-          <p className="text-gray-500 text-sm mb-4">No users found.</p>
-        )}
-
-        <div className="mb-5">
-          <button
-            type="button"
-            onClick={() => setShowStarredMessages((value) => !value)}
-            className={`w-full flex items-center justify-between gap-3 p-3 rounded-xl border transition ${
-              showStarredMessages
-                ? "bg-yellow-500/15 border-yellow-500/40 text-yellow-200"
-                : "bg-[#1b1928] border-gray-800 hover:border-yellow-500/40 text-gray-300"
-            }`}
-          >
-            <span className="flex items-center gap-2">
-              <Star size={18} className="text-yellow-400" />
-              <span className="font-semibold text-sm">Starred Messages</span>
-            </span>
-
-            <span className="text-xs rounded-full bg-yellow-500/20 px-2 py-1 text-yellow-200">
-              {starredMessages.length}
-            </span>
-          </button>
-
-          {showStarredMessages && (
-            <div className="mt-2 max-h-64 overflow-y-auto space-y-2">
-              {starredMessages.length === 0 ? (
-                <p className="text-xs text-gray-500 p-3">
-                  You have no starred messages yet.
-                </p>
-              ) : (
-                starredMessages.map((starredMsg) => {
-                  const starredChatId = starredMsg.chat?._id || starredMsg.chat;
-
-                  const starredChat = chats.find(
-                    (chat) => String(chat._id) === String(starredChatId),
-                  );
-
-                  return (
-                    <button
-                      key={starredMsg._id}
-                      type="button"
-                      onClick={() => handleOpenStarredMessage(starredMsg)}
-                      className="w-full text-left rounded-xl border border-yellow-500/20 bg-[#1b1928] hover:bg-yellow-500/10 p-3 transition"
-                    >
-                      <div className="flex items-center gap-2 mb-1">
-                        <Star size={13} className="text-yellow-400 shrink-0" />
-
-                        <span className="text-xs text-yellow-200 font-semibold truncate">
-                          {starredChat
-                            ? getChatTitle(starredChat)
-                            : starredMsg.sender?.fullName || "Starred message"}
-                        </span>
-                      </div>
-
-                      <p className="text-xs text-gray-300 line-clamp-2 break-words">
-                        {starredMsg.content}
-                      </p>
-                    </button>
-                  );
-                })
-              )}
-            </div>
-          )}
-        </div>
-
-        <div className="border-t border-gray-800 pt-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold">Your Conversations</h3>
-
-            <button
-              type="button"
-              onClick={() => {
-                setGroupError("");
-                setShowGroupModal(true);
-              }}
-              className="flex items-center gap-1 text-purple-400 text-sm hover:text-purple-300"
-            >
-              <Users size={16} />
-              New Group
-            </button>
-          </div>
-
-          {chatLoading && (
-            <p className="text-purple-400 text-sm">Loading chats...</p>
-          )}
-
-          {chatError && (
-            <p className="text-red-400 text-sm mb-3">{chatError}</p>
-          )}
-
-          {!chatLoading && chats.length === 0 && (
-            <p className="text-gray-500 text-sm">
-              No conversations yet. Search for a friend to start chatting.
-            </p>
-          )}
-
-          <div className="space-y-2">
-            {chats.map((chat) => {
-              const chatOtherUser = getOtherUser(chat);
-
-              return (
-                <button
-                  key={chat._id}
-                  onClick={() => setSelectedChat(chat)}
-                  className={`w-full flex items-center gap-3 p-3 rounded-xl text-left transition ${
-                    selectedChat?._id === chat._id
-                      ? "bg-purple-600/20 border border-purple-500/40"
-                      : "hover:bg-white/5 border border-transparent"
-                  }`}
-                >
-                  <div className="relative">
-                    {chat.isGroupChat ? (
-                      <GroupAvatar />
-                    ) : (
-                      <>
-                        <UserAvatar
-                          profilePic={chatOtherUser?.profilePic}
-                          fullName={chatOtherUser?.fullName}
-                        />
-
-                        <span
-                          className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[#0e0c18] ${
-                            chatOtherUser?.isOnline
-                              ? "bg-green-400"
-                              : "bg-gray-500"
-                          }`}
-                        />
-                      </>
-                    )}
-                  </div>
-
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-1 mb-0.5">
-                      <h4 className="font-semibold truncate">
-                        {getChatTitle(chat)}
-                      </h4>
-                      {chat.latestMessage?.createdAt && (
-                        <span className="shrink-0 text-[11px] text-gray-500">
-                          {new Date(chat.latestMessage.createdAt).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="flex items-center justify-between gap-2 min-w-0">
-                      <p className="text-xs text-gray-400 truncate">
-                        {chat.latestMessage?.content || "Start a conversation"}
-                      </p>
-
-                      {chat.unreadCount > 0 && (
-                        <span className="shrink-0 min-w-5 h-5 px-1 rounded-full bg-green-500 text-white text-xs font-bold flex items-center justify-center">
-                          {chat.unreadCount > 99 ? "99+" : chat.unreadCount}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
       </section>
 
       {/* Main chat area */}

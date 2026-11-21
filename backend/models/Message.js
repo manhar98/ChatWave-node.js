@@ -20,27 +20,100 @@ const messageSchema = new mongoose.Schema(
       required: true,
     },
 
+    isEdited: {
+      type: Boolean,
+      default: false,
+    },
+
+    editedAt: {
+      type: Date,
+      default: null,
+    },
+
     messageType: {
       type: String,
-      enum: ["text", "image"],
+      enum: ["text", "image", "video"],
       default: "text",
     },
 
+    // Reply to another message
+    replyTo: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Message",
+      default: null,
+    },
+
+    // Message reactions
+    reactions: [
+      {
+        user: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+          required: true,
+        },
+        emoji: {
+          type: String,
+          enum: ["👍", "❤️", "😂", "😮", "😢", "🙏"],
+          required: true,
+        },
+      },
+    ],
+
+    // Forward message feature
+    isForwarded: {
+      type: Boolean,
+      default: false,
+    },
+
+    forwardedFrom: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Message",
+      default: null,
+    },
+
+    // Pin / Unpin message feature
+    isPinned: {
+      type: Boolean,
+      default: false,
+    },
+
+    pinnedAt: {
+      type: Date,
+      default: null,
+    },
+
+    pinnedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+
+    // Starred Messages feature
+    starredBy: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+
+    // Read status
     isRead: {
       type: Boolean,
       default: false,
     },
 
+    // Delivered status
     isDelivered: {
       type: Boolean,
       default: false,
     },
+
     deliveredAt: {
       type: Date,
       default: null,
     },
 
-    // Users who deleted this message for themselves
+    // Delete message for me
     deletedFor: [
       {
         type: mongoose.Schema.Types.ObjectId,
@@ -48,7 +121,7 @@ const messageSchema = new mongoose.Schema(
       },
     ],
 
-    // Message deleted for everyone
+    // Delete message for everyone
     isDeletedForEveryone: {
       type: Boolean,
       default: false,

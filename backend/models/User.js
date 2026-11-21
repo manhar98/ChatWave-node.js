@@ -34,14 +34,14 @@ const userSchema = new mongoose.Schema(
       default: "",
     },
 
-    isOnline: {
+        isOnline: {
       type: Boolean,
       default: false,
     },
 
     lastSeen: {
       type: Date,
-      default: Date.now,
+      default: null,
     },
   },
   {

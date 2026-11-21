@@ -5,6 +5,7 @@ import userRoutes from "./routes/userRoutes.js";
 import chatRoutes from "./routes/chatRoutes.js";
 import messageRoutes from "./routes/messageRoutes.js";
 import { initSocket } from "./socket/socketHandler.js";
+import statusRoutes from "./routes/statusRoutes.js";
 
 // Fix MongoDB DNS Resolution
 dns.setServers(["8.8.8.8", "8.8.4.4"]);
@@ -44,6 +45,7 @@ app.use("/api/users", userRoutes);
 app.use("/api/chats", chatRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/uploads", express.static("uploads"));
+app.use("/api/status", statusRoutes);
 
 
 // Test API

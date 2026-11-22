@@ -30,6 +30,10 @@ import {
   KeyRound,
   Info,
   Download,
+  Paperclip,
+  FileText,
+  File,
+  CheckCircle,
 } from "lucide-react";
 
 import API from "../utils/api";
@@ -116,6 +120,11 @@ function Dashboard() {
   const [messageError, setMessageError] = useState("");
   const [otherUserTyping, setOtherUserTyping] = useState(false);
 
+  // File attachment states
+  const [attachedFile, setAttachedFile] = useState(null);
+  const [attachPreview, setAttachPreview] = useState(null);
+  const fileInputRef = useRef(null);
+
   // Message search states
   const [messageSearch, setMessageSearch] = useState("");
 
@@ -150,6 +159,18 @@ function Dashboard() {
   // Settings modal
   const [showSettings, setShowSettings] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
+
+  // Change Password modal (OTP flow)
+  const [showChangePass, setShowChangePass] = useState(false);
+  const [changePassStep, setChangePassStep] = useState(1);
+  const [changePassEmail, setChangePassEmail] = useState("");
+  const [changePassOtp, setChangePassOtp] = useState("");
+  const [changePassNew, setChangePassNew] = useState("");
+  const [changePassConfirm, setChangePassConfirm] = useState("");
+  const [changePassLoading, setChangePassLoading] = useState(false);
+  const [changePassError, setChangePassError] = useState("");
+  const [changePassSuccess, setChangePassSuccess] = useState("");
+  const [showChangePassPwd, setShowChangePassPwd] = useState(false);
 
   // Chat / Status tabs
   const [activeTab, setActiveTab] = useState("chats");
@@ -1330,6 +1351,12 @@ function Dashboard() {
   const handleSendMessage = async (e) => {
     e.preventDefault();
 
+    // If file attached, send as media
+    if (attachedFile) {
+      await handleSendFile();
+      return;
+    }
+
     if (!newMessage.trim() || !selectedChat?._id || sending) return;
 
     try {
@@ -1375,6 +1402,103 @@ function Dashboard() {
     } finally {
       setSending(false);
     }
+  };
+
+  // Send file/media attachment
+  const handleSendFile = async () => {
+    if (!attachedFile || !selectedChat?._id || sending) return;
+    try {
+      setSending(true);
+      setMessageError("");
+      const formData = new FormData();
+      formData.append("media", attachedFile);
+      formData.append("chatId", selectedChat._id);
+      if (newMessage.trim()) formData.append("caption", newMessage.trim());
+
+      const { data } = await API.post("/messages/media", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      setAttachedFile(null);
+      setAttachPreview(null);
+      setNewMessage("");
+
+      const sentMessage = data.data || data.newMessage;
+      if (sentMessage) {
+        setMessages((prev) => {
+          const exists = prev.some((m) => String(m._id) === String(sentMessage._id));
+          return exists ? prev : [...prev, sentMessage];
+        });
+      }
+      await fetchChats();
+    } catch (err) {
+      setMessageError(err.response?.data?.message || "File મોકલી શકાયો નથી.");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  // Change Password - Send OTP
+  const handleChangePassSendOTP = async (e) => {
+    e.preventDefault();
+    setChangePassError("");
+    setChangePassSuccess("");
+    if (!changePassEmail) { setChangePassError("Email જરૂરી છે."); return; }
+    try {
+      setChangePassLoading(true);
+      const { data } = await API.post("/auth/send-otp", { email: changePassEmail });
+      if (data.success) {
+        setChangePassSuccess("OTP email પર મોકલ્યો!");
+        setTimeout(() => { setChangePassStep(2); setChangePassSuccess(""); }, 1200);
+      } else {
+        setChangePassError(data.message || "OTP મોકલવામાં ભૂલ.");
+      }
+    } catch (err) {
+      setChangePassError(err.response?.data?.message || "OTP મોકલવામાં ભૂલ. ફરી પ્રયાસ કરો.");
+    } finally {
+      setChangePassLoading(false);
+    }
+  };
+
+  // Change Password - Verify OTP & Reset
+  const handleChangePassVerify = async (e) => {
+    e.preventDefault();
+    setChangePassError("");
+    if (!changePassOtp || !changePassNew || !changePassConfirm) {
+      setChangePassError("OTP, New Password અને Confirm Password ભરો.");
+      return;
+    }
+    if (changePassNew.length < 6) { setChangePassError("Password ઓછામાં 6 character."); return; }
+    if (changePassNew !== changePassConfirm) { setChangePassError("Passwords match નથી."); return; }
+    try {
+      setChangePassLoading(true);
+      const { data } = await API.post("/auth/verify-otp", {
+        email: changePassEmail,
+        otp: changePassOtp,
+        newPassword: changePassNew,
+      });
+      if (data.success) {
+        setChangePassSuccess("Password બદલ્યો! ફરી Login કરો.");
+        setTimeout(() => { handleLogout(); }, 2000);
+      } else {
+        setChangePassError(data.message || "Password reset ન થઈ.");
+      }
+    } catch (err) {
+      setChangePassError(err.response?.data?.message || "Password reset ન થઈ.");
+    } finally {
+      setChangePassLoading(false);
+    }
+  };
+
+  const closeChangePass = () => {
+    setShowChangePass(false);
+    setChangePassStep(1);
+    setChangePassEmail("");
+    setChangePassOtp("");
+    setChangePassNew("");
+    setChangePassConfirm("");
+    setChangePassError("");
+    setChangePassSuccess("");
   };
 
   // Delete for me
@@ -2378,7 +2502,23 @@ function Dashboard() {
                         )}
 
                         <div className="flex items-start gap-3">
-                          <div className="flex-1 min-w-0">
+                          <div class="flex-1 min-w-0">
+                            {/* Media rendering */}
+                            {!msg.isDeletedForEveryone && msg.messageType === "image" && msg.mediaUrl && (
+                              <a href={`${SERVER_URL}${msg.mediaUrl}`} target="_blank" rel="noopener noreferrer">
+                                <img src={`${SERVER_URL}${msg.mediaUrl}`} alt="Image" className="rounded-xl max-w-[220px] max-h-[220px] object-cover mb-1 cursor-pointer hover:opacity-90" />
+                              </a>
+                            )}
+                            {!msg.isDeletedForEveryone && msg.messageType === "video" && msg.mediaUrl && (
+                              <video src={`${SERVER_URL}${msg.mediaUrl}`} controls className="rounded-xl max-w-[220px] mb-1" />
+                            )}
+                            {!msg.isDeletedForEveryone && (msg.messageType === "pdf" || msg.messageType === "document") && msg.mediaUrl && (
+                              <a href={`${SERVER_URL}${msg.mediaUrl}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 bg-white/10 hover:bg-white/20 rounded-xl px-3 py-2.5 mb-1 max-w-[240px] transition">
+                                <FileText size={20} className="text-purple-300 shrink-0" />
+                                <span className="text-xs text-white truncate flex-1">{msg.mediaName || "Document"}</span>
+                                <Download size={14} className="text-gray-400 shrink-0" />
+                              </a>
+                            )}
                             <p
                               className={`break-words ${
                                 msg.isDeletedForEveryone
@@ -2390,7 +2530,9 @@ function Dashboard() {
                                 ? "This message was deleted"
                                 : messageSearch.trim()
                                   ? highlightMessage(msg.content)
-                                  : renderMessageContent(msg.content)}
+                                  : msg.content
+                                    ? renderMessageContent(msg.content)
+                                    : null}
                             </p>
 
                             {msg.isEdited && !msg.isDeletedForEveryone && (
@@ -2712,7 +2854,50 @@ function Dashboard() {
                   </button>
                 </div>
               )}
-
+              {/* File attach preview */}
+              {attachedFile && (
+                <div className="absolute bottom-full left-5 right-5 mb-2 flex items-center justify-between gap-3 rounded-xl border border-purple-500/40 bg-[#242134] p-3 shadow-xl">
+                  <div className="flex items-center gap-2 min-w-0">
+                    {attachedFile.type.startsWith("image/") ? (
+                      <img src={attachPreview} alt="preview" className="w-10 h-10 rounded-lg object-cover shrink-0" />
+                    ) : (
+                      <div className="w-10 h-10 rounded-lg bg-purple-600/30 flex items-center justify-center shrink-0"><FileText size={18} className="text-purple-300" /></div>
+                    )}
+                    <span className="text-xs text-gray-300 truncate">{attachedFile.name}</span>
+                  </div>
+                  <button type="button" onClick={() => { setAttachedFile(null); setAttachPreview(null); }} className="rounded-lg p-2 text-gray-300 hover:bg-white/10" title="Remove">
+                    <X size={18} />
+                  </button>
+                </div>
+              )}
+              {/* Hidden file input */}
+              <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.txt"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (!f) return;
+                  setAttachedFile(f);
+                  if (f.type.startsWith("image/")) {
+                    const url = URL.createObjectURL(f);
+                    setAttachPreview(url);
+                  } else { setAttachPreview(null); }
+                  e.target.value = "";
+                }}
+              />
+              {/* Attach button */}
+              {!editingMessage && (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="shrink-0 p-3 rounded-xl bg-[#1b1928] border border-gray-700 hover:border-purple-500 text-gray-400 hover:text-purple-400 transition"
+                  title="Attach file"
+                >
+                  <Paperclip size={19} />
+                </button>
+              )}
               <input
                 type="text"
                 value={newMessage}
@@ -2720,7 +2905,9 @@ function Dashboard() {
                 placeholder={
                   editingMessage
                     ? "Edit your message..."
-                    : "Type your message..."
+                    : attachedFile
+                      ? "Add a caption (optional)..."
+                      : "Type your message..."
                 }
                 className="min-w-0 flex-1 bg-[#1b1928] border border-gray-700 rounded-xl px-3 sm:px-5 py-3 text-sm sm:text-base outline-none focus:border-purple-500"
               />
@@ -2740,7 +2927,9 @@ function Dashboard() {
 
               <button
                 type="submit"
-                disabled={sending || !newMessage.trim()}
+              <button
+                type="submit"
+                disabled={sending || (!newMessage.trim() && !attachedFile)}
                 className="shrink-0 px-3 sm:px-6 py-3 rounded-xl bg-purple-600 hover:bg-purple-700 disabled:opacity-50 flex items-center gap-2"
               >
                 {editingMessage ? <Pencil size={18} /> : <Send size={18} />}
@@ -3473,7 +3662,7 @@ function Dashboard() {
 
               <button
                 type="button"
-                onClick={() => { setShowSettings(false); }}
+                onClick={() => { setShowSettings(false); setChangePassEmail(user?.email || ""); setChangePassStep(1); setChangePassError(""); setChangePassSuccess(""); setShowChangePass(true); }}
                 className="w-full flex items-center gap-4 px-3 py-3 rounded-xl hover:bg-white/5 transition text-left"
               >
                 <div className="w-9 h-9 rounded-full bg-purple-500/20 flex items-center justify-center shrink-0">
@@ -3481,7 +3670,7 @@ function Dashboard() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-sm">Change Password</p>
-                  <p className="text-xs text-gray-400">Login page → Forgot Password</p>
+                  <p className="text-xs text-gray-400">OTP via email</p>
                 </div>
                 <ChevronRight size={17} className="text-gray-500" />
               </button>
@@ -3603,6 +3792,116 @@ function Dashboard() {
         </div>
       )}
       {/* ============== END SETTINGS MODAL ============== */}
+
+      {/* ============== CHANGE PASSWORD MODAL (OTP) ============== */}
+      {showChangePass && (
+        <div
+          className="fixed inset-0 z-[14000] bg-black/80 flex items-center justify-center p-4"
+          onClick={(e) => { if (e.target === e.currentTarget && !changePassLoading) closeChangePass(); }}
+        >
+          <div className="relative w-full max-w-md bg-[#12101d] border border-purple-500/30 rounded-2xl p-6 shadow-2xl">
+            <div className="flex items-center justify-between pb-4 border-b border-white/10">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center text-purple-400">
+                  <KeyRound size={20} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">Change Password</h3>
+                  <p className="text-xs text-gray-400">{changePassStep === 1 ? "Step 1: Verify your email" : "Step 2: Enter OTP & new password"}</p>
+                </div>
+              </div>
+              <button type="button" onClick={() => !changePassLoading && closeChangePass()} className="text-gray-400 hover:text-white p-2 rounded-lg hover:bg-white/5 transition">
+                <X size={19} />
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2 mt-4 mb-5">
+              <div className={`flex-1 h-1 rounded-full ${changePassStep >= 1 ? "bg-purple-500" : "bg-gray-700"}`}></div>
+              <div className={`flex-1 h-1 rounded-full ${changePassStep >= 2 ? "bg-purple-500" : "bg-gray-700"}`}></div>
+            </div>
+
+            {changePassError && (
+              <div className="bg-red-500/10 border border-red-500/30 text-red-400 p-3 rounded-xl text-xs mb-4">{changePassError}</div>
+            )}
+            {changePassSuccess && (
+              <div className="bg-green-500/10 border border-green-500/30 text-green-400 p-3 rounded-xl text-xs flex items-center gap-2 mb-4">
+                <CheckCircle size={16} /><span>{changePassSuccess}</span>
+              </div>
+            )}
+
+            {changePassStep === 1 && (
+              <form onSubmit={handleChangePassSendOTP} className="space-y-4">
+                <div>
+                  <label className="block text-xs text-gray-300 mb-1.5 font-medium">Your Email Address</label>
+                  <input
+                    type="email"
+                    value={changePassEmail}
+                    onChange={(e) => setChangePassEmail(e.target.value)}
+                    required
+                    className="w-full bg-[#1b1928] border border-gray-700 rounded-xl py-2.5 px-4 text-sm outline-none focus:border-purple-500 transition"
+                    placeholder="Email enter ???"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">OTP email ?? ???? (10 minutes valid)</p>
+                </div>
+                <button type="submit" disabled={changePassLoading} className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-500 hover:to-violet-500 font-semibold transition disabled:opacity-50 text-sm">
+                  {changePassLoading ? "OTP ????? ?????..." : "Send OTP"}
+                </button>
+                <button type="button" onClick={closeChangePass} className="w-full py-2.5 rounded-xl border border-gray-700 hover:bg-white/5 text-gray-400 hover:text-white transition text-xs">Cancel</button>
+              </form>
+            )}
+
+            {changePassStep === 2 && (
+              <form onSubmit={handleChangePassVerify} className="space-y-4">
+                <div>
+                  <label className="block text-xs text-gray-300 mb-1.5 font-medium">Email OTP</label>
+                  <input
+                    type="text"
+                    value={changePassOtp}
+                    onChange={(e) => setChangePassOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    required maxLength={6}
+                    className="w-full bg-[#1b1928] border border-gray-700 rounded-xl py-2.5 px-4 text-sm outline-none focus:border-purple-500 transition tracking-widest"
+                    placeholder="6-digit OTP"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-300 mb-1.5 font-medium">New Password</label>
+                  <div className="relative">
+                    <input
+                      type={showChangePassPwd ? "text" : "password"}
+                      value={changePassNew}
+                      onChange={(e) => setChangePassNew(e.target.value)}
+                      required minLength={6}
+                      className="w-full bg-[#1b1928] border border-gray-700 rounded-xl py-2.5 pl-4 pr-11 text-sm outline-none focus:border-purple-500 transition"
+                      placeholder="New password (min 6)"
+                    />
+                    <button type="button" onClick={() => setShowChangePassPwd(!showChangePassPwd)} className="absolute right-3 top-2.5 text-gray-400">
+                      {showChangePassPwd ? <EyeOff size={17} /> : <Eye size={17} />}
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-300 mb-1.5 font-medium">Confirm New Password</label>
+                  <input
+                    type={showChangePassPwd ? "text" : "password"}
+                    value={changePassConfirm}
+                    onChange={(e) => setChangePassConfirm(e.target.value)}
+                    required minLength={6}
+                    className="w-full bg-[#1b1928] border border-gray-700 rounded-xl py-2.5 px-4 text-sm outline-none focus:border-purple-500 transition"
+                    placeholder="Confirm password"
+                  />
+                </div>
+                <button type="submit" disabled={changePassLoading} className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-500 hover:to-violet-500 font-semibold transition disabled:opacity-50 text-sm">
+                  {changePassLoading ? "Password reset..." : "Reset Password"}
+                </button>
+                <button type="button" onClick={() => { setChangePassStep(1); setChangePassError(""); setChangePassOtp(""); }} className="w-full py-2.5 rounded-xl border border-gray-700 hover:bg-white/5 text-gray-400 hover:text-white transition text-xs">
+                  ? Back (Resend OTP)
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+      {/* ============== END CHANGE PASSWORD MODAL ============== */}
 
       {/* ============== USER PROFILE MODAL (WhatsApp-style) ============== */}
       {showUserProfile && viewingUser && (

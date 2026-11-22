@@ -17,7 +17,7 @@ const messageSchema = new mongoose.Schema(
     content: {
       type: String,
       trim: true,
-      required: true,
+      default: "",
     },
 
     isEdited: {
@@ -32,8 +32,23 @@ const messageSchema = new mongoose.Schema(
 
     messageType: {
       type: String,
-      enum: ["text", "image", "video"],
+      enum: ["text", "image", "video", "document", "pdf", "audio"],
       default: "text",
+    },
+
+    mediaUrl: {
+      type: String,
+      default: "",
+    },
+
+    mediaName: {
+      type: String,
+      default: "",
+    },
+
+    mediaSize: {
+      type: Number,
+      default: 0,
     },
 
     // Reply to another message

@@ -1139,17 +1139,23 @@ export const sendMediaMessage = async (req, res) => {
       });
     }
 
-    const isImage = req.file.mimetype.startsWith("image/");
-
-    const messageType = isImage ? "image" : "video";
+    const mime = req.file.mimetype;
+    let messageType = "document";
+    if (mime.startsWith("image/")) messageType = "image";
+    else if (mime.startsWith("video/")) messageType = "video";
+    else if (mime === "application/pdf") messageType = "pdf";
+    else if (mime.startsWith("audio/")) messageType = "audio";
 
     const mediaUrl = `/uploads/${req.file.filename}`;
 
     let newMessage = await Message.create({
       chat: chatId,
       sender: req.user._id,
-      content: mediaUrl,
+      content: req.body.caption || "",
       messageType,
+      mediaUrl,
+      mediaName: req.file.originalname,
+      mediaSize: req.file.size,
     });
 
     chat.latestMessage = newMessage._id;

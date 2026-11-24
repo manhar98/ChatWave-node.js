@@ -41,11 +41,14 @@ function Login() {
       const { data } = await API.post("/auth/send-otp", { email: forgotEmail });
 
       if (data.success) {
-        setForgotSuccess("OTP તમારા email પર મોકલ્યો છે! Inbox તપાસો.");
+        if (data.devOtp) {
+          setForgotOtp(data.devOtp);
+        }
+        setForgotSuccess(data.message || "OTP તમારા email પર મોકલ્યો છે! Inbox તપાસો.");
         setTimeout(() => {
           setForgotStep(2);
           setForgotSuccess("");
-        }, 1500);
+        }, 1800);
       } else {
         setForgotError(data.message || "OTP મોકલવામાં ભૂલ.");
       }

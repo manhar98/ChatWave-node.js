@@ -1448,8 +1448,11 @@ function Dashboard() {
       setChangePassLoading(true);
       const { data } = await API.post("/auth/send-otp", { email: changePassEmail });
       if (data.success) {
-        setChangePassSuccess("OTP email પર મોકલ્યો!");
-        setTimeout(() => { setChangePassStep(2); setChangePassSuccess(""); }, 1200);
+        if (data.devOtp) {
+          setChangePassOtp(data.devOtp);
+        }
+        setChangePassSuccess(data.message || "OTP email પર મોકલ્યો!");
+        setTimeout(() => { setChangePassStep(2); setChangePassSuccess(""); }, 1800);
       } else {
         setChangePassError(data.message || "OTP મોકલવામાં ભૂલ.");
       }
